@@ -6,8 +6,9 @@
 
 import os
 import traceback
-import difflib
 import re
+
+import difflib
 
 
 # 是否是C++源代码
@@ -31,7 +32,27 @@ def format_source(lines):
     return text
 
 
-def check_diff(file_list, threshold):
+def get_diff(text1, text2, method):
+    if method == 1:
+        return get_diff_difflib(text1, text2)
+    else:
+        return get_diff_levenshtein(text1, text2)
+
+
+def get_diff_difflib(text1, text2):
+    return difflib.SequenceMatcher(None, text1, text2).ratio()
+
+
+def get_diff_levenshtein(text1, text2):
+    import diff_match_patch
+    dmp = diff_match_patch.diff_match_patch()
+    diffs = dmp.diff_main(text1, text2)
+    d_value = dmp.diff_levenshtein(diffs)
+    max_length = max(len(text1), len(text2))
+    return 1 - float(d_value) / float(max_length)
+
+
+def check_diff(file_list, threshold, method):
     bad_list = []
     for i in range(0, len(file_list)):
         for j in range(i + 1, len(file_list)):
@@ -43,13 +64,30 @@ def check_diff(file_list, threshold):
                 text2 = format_source(fp.readlines())
                 fp.close()
 
-                simi = difflib.SequenceMatcher(None, text1, text2).ratio()
-                if simi >= threshold:
-                    bad_list.append((simi, file_list[i], file_list[j]))
+                similarity = get_diff(text1, text2, method)
+                if similarity >= threshold:
+                    bad_list.append((similarity, file_list[i], file_list[j]))
             except Exception as e:
                 traceback.print_exc()
                 print(e)
     return bad_list
+
+
+def choose_method():
+    choose = 1
+    try:
+        import diff_match_patch
+        choose = input('1. difflib; 2. levenshtein ')
+        try:
+            choose = int(choose)
+        except:
+            pass
+        if (choose != 1 and choose != 2):
+            print('use difflib')
+            choose = 1
+    except ImportError:
+        print('cannot import diff_match_patch')
+    return choose
 
 
 def main():
@@ -57,6 +95,7 @@ def main():
     print(cd)
 
     threshold = 0.8
+    choose = choose_method()
 
     file_list = []
     for root, dir, files in os.walk("."):
@@ -65,7 +104,7 @@ def main():
             if is_source(file_path):
                 file_list.append(file_path)
 
-    bad_list = check_diff(file_list, threshold)
+    bad_list = check_diff(file_list, threshold, choose)
 
     bad_list.sort(key=lambda x:x[0], reverse=True)
     for pair in bad_list:
