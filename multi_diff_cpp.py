@@ -52,7 +52,7 @@ def get_diff_levenshtein(text1, text2):
     return 1 - float(d_value) / float(max_length)
 
 
-def check_diff(file_list, threshold, method):
+def check_diff(file_list, threshold, min_length, method):
     bad_list = []
     for i in range(0, len(file_list)):
         for j in range(i + 1, len(file_list)):
@@ -65,7 +65,7 @@ def check_diff(file_list, threshold, method):
                 fp.close()
 
                 similarity = get_diff(text1, text2, method)
-                if similarity >= threshold:
+                if similarity >= threshold and len(text1) > min_length and len(text2) > min_length:
                     bad_list.append((similarity, file_list[i], file_list[j]))
             except Exception as e:
                 traceback.print_exc()
@@ -95,6 +95,7 @@ def main():
     print(cd)
 
     threshold = 0.8
+    min_length = 50
     choose = choose_method()
 
     file_list = []
@@ -104,7 +105,7 @@ def main():
             if is_source(file_path):
                 file_list.append(file_path)
 
-    bad_list = check_diff(file_list, threshold, choose)
+    bad_list = check_diff(file_list, threshold, min_length, choose)
 
     bad_list.sort(key=lambda x:x[0], reverse=True)
     for pair in bad_list:
